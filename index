@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2K Futbol Simülasyonu</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Teko:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700;800&display=swap');
+
+:root {
+  --neon-blue: #00e5ff;
+  --bg-dark: #05060a;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+body, html { width: 100%; height: 100%; background: #153320; overflow: hidden; font-family: 'Barlow Condensed', sans-serif; display: flex; justify-content: center; align-items: center; }
+
+/* 2K Çözünürlük Konteyneri */
+#game-container {
+  width: 2560px;
+  height: 1440px;
+  position: relative;
+  background: var(--bg-dark);
+  transform-origin: center center;
+  box-shadow: 0 0 80px rgba(0,0,0,1);
+}
+
+canvas { position: absolute; top: 0; left: 0; display: block; }
+
+/* =========================================
+   SKORBOARD & SPONSOR
+   ========================================= */
+#scoreboard-hud {
+  position: absolute;
+  top: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 20px; 
+  z-index: 10;
+  filter: drop-shadow(0 15px 20px rgba(0,0,0,0.7));
+}
+
+.sb-sponsor {
+  width: 480px;
+  height: 70px;
+  background: rgba(10,12,25,0.85);
+  border: 2px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  margin-top: 20px;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  box-shadow: inset 0 0 15px rgba(0,0,0,0.5);
+  flex-shrink: 0;
+}
+.sponsor-text {
+  display: inline-block;
+  padding-left: 100%;
+  font-family: 'Teko', sans-serif;
+  font-size: 38px;
+  color: #ffffff;
+  letter-spacing: 4px;
+  animation: marquee 37s linear infinite;
+}
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-100%); }
+}
+
+.sb-team {
+  width: 530px; 
+  height: 110px;
+  background: linear-gradient(90deg, rgba(10,12,25,0.95), rgba(20,24,45,0.95));
+  display: flex;
+  align-items: center;
+  padding: 0 30px;
+  border-bottom: 3px solid #fff;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.sb-team::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 50%; height: 100%;
+  background: linear-gradient(to right, transparent, rgba(255,255,255,0.15), transparent);
+  transform: skewX(-25deg);
+  animation: shimmer 6s infinite;
+}
+@keyframes shimmer {
+  0% { left: -100%; }
+  20% { left: 200%; }
+  100% { left: 200%; }
+}
+
+.sb-home {
+  clip-path: polygon(0 0, 100% 0, 92% 100%, 0% 100%);
+  padding-right: 60px;
+}
+.sb-away {
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 8% 100%);
+  flex-direction: row-reverse;
+  padding-left: 60px;
+}
+
+.sb-logo-box { width: 85px; height: 85px; display: flex; align-items: center; justify-content: center; position: relative; flex-shrink: 0; z-index: 2; }
+.sb-logo-box img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 0 10px rgba(255,255,255,0.2)); transform: scale(1.2); }
+.logo-fallback { font-family: 'Teko', sans-serif; font-size: 60px; font-weight: 700; color: #fff; line-height: 1; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+
+.sb-text { display: flex; flex-direction: column; margin: 0 20px; flex-grow: 1; z-index: 2; }
+.sb-home .sb-text { align-items: flex-start; }
+.sb-away .sb-text { align-items: flex-end; }
+.sb-text h2 { 
+  font-family: 'Teko', sans-serif; 
+  font-size: 52px; 
+  color: #fff; 
+  line-height: 0.9; 
+  letter-spacing: 2px; 
+  white-space: nowrap; 
+  transition: all 0.3s;
+}
+/* Transform Origin'ler Metin Büyüme Animasyonu İçin Eklendi */
+.sb-home .sb-text h2 { transform-origin: left center; }
+.sb-away .sb-text h2 { transform-origin: right center; }
+
+/* GOL METNİ ANİMASYONU (GOOOOOL!) */
+.goal-text-anim {
+  animation: goalTextPulse 0.4s infinite alternate;
+}
+@keyframes goalTextPulse {
+  0% { transform: scale(1); text-shadow: 0 0 10px currentColor; }
+  100% { transform: scale(1.15); text-shadow: 0 0 35px currentColor; }
+}
+
+.sb-center {
+  width: 280px;
+  height: 140px;
+  background: rgba(5,6,10,0.98);
+  clip-path: polygon(5% 0, 95% 0, 100% 100%, 0% 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 0 -30px;
+  z-index: 2;
+  border-bottom: 5px solid var(--neon-blue);
+  flex-shrink: 0;
+}
+.sb-score-text { font-family: 'Teko', sans-serif; font-size: 90px; font-weight: 700; color: #fff; line-height: 0.8; margin-top: 10px; display: flex; gap: 15px; align-items: center; }
+
+.sb-score-text span { display: inline-block; transition: color 0.3s; }
+
+/* YENİLENMİŞ SKOR GOL ANİMASYONU (CURRENTCOLOR MİRASI İLE TAKIM RENGİNDE PARLAR) */
+.goal-anim {
+  animation: scorePop 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+@keyframes scorePop {
+  0% { transform: scale(1); text-shadow: 0 0 0px transparent; }
+  40% { transform: scale(1.6); text-shadow: 0 0 35px currentColor; }
+  100% { transform: scale(1); text-shadow: 0 0 0px transparent; }
+}
+
+.sb-time-badge { 
+  background: #1a1e36; padding: 4px 30px; border-radius: 8px; font-weight: 800; font-size: 28px; color: var(--neon-blue); letter-spacing: 3px; margin-top: 5px; border: 1px solid rgba(0, 229, 255, 0.3);
+  animation: pulseGlow 2s infinite alternate; 
+}
+@keyframes pulseGlow {
+  0% { box-shadow: 0 0 5px rgba(0, 229, 255, 0.2); }
+  100% { box-shadow: 0 0 20px rgba(0, 229, 255, 0.8); }
+}
+
+/* =========================================
+   İSTATİSTİK PANELİ
+   ========================================= */
+#stats-overlay {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%) translateY(50px);
+  width: 700px;
+  background: rgba(10, 12, 25, 0.95);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-top: 5px solid var(--neon-blue);
+  border-radius: 16px;
+  padding: 30px 50px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  opacity: 0;
+  transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  pointer-events: none;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+}
+#stats-overlay.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.stats-header { font-family: 'Teko', sans-serif; font-size: 42px; color: var(--neon-blue); text-align: center; letter-spacing: 3px; margin-bottom: 10px; line-height: 1; }
+.stat-block { display: flex; flex-direction: column; width: 100%; }
+.stat-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+.stat-label { font-size: 24px; color: #ccc; letter-spacing: 2px; flex: 1; text-align: center; font-weight: 600; }
+.stat-val { font-family: 'Teko', sans-serif; font-size: 46px; font-weight: 700; width: 80px; text-align: center; line-height: 1; color: #fff; }
+.stat-bar-container { display: flex; width: 100%; height: 8px; background: #222; border-radius: 4px; overflow: hidden; }
+.stat-bar-home, .stat-bar-away { height: 100%; transition: width 0.5s ease-out; }
+
+/* Menüler ve Gelişmiş Bitiş Ekranı */
+.screen-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.85); z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; backdrop-filter: blur(8px); }
+.menu-box { background: rgba(10,12,25,0.95); padding: 50px 80px; border-radius: 20px; border: 2px solid rgba(255,255,255,0.1); text-align: center; }
+.menu-box h1 { font-family: 'Teko', sans-serif; font-size: 110px; color: var(--neon-blue); text-shadow: 0 0 30px rgba(0,229,255,0.5); margin-bottom: 30px; line-height: 1; }
+.select-row { display: flex; gap: 40px; margin-bottom: 50px; justify-content: center; align-items: flex-end; }
+.select-box { display: flex; flex-direction: column; gap: 10px; }
+.select-box label { font-size: 26px; color: #aaa; letter-spacing: 2px; }
+select { font-family: 'Barlow Condensed', sans-serif; font-size: 32px; padding: 12px 25px; border-radius: 12px; background: #000; color: #fff; border: 2px solid #333; outline: none; cursor: pointer; width: 300px; text-align: center;}
+select:focus { border-color: var(--neon-blue); }
+.vs-text { font-family: 'Teko', sans-serif; font-size: 60px; color: #555; padding-bottom: 5px; }
+.btn-action { background: linear-gradient(45deg, #ff007c, var(--neon-blue)); border: none; padding: 20px 60px; font-size: 40px; font-family: 'Teko', sans-serif; font-weight: 700; color: white; cursor: pointer; border-radius: 15px; transition: transform 0.2s, box-shadow 0.2s; letter-spacing: 3px; }
+.btn-action:hover { transform: scale(1.05); box-shadow: 0 0 40px rgba(0,229,255,0.4); }
+
+.end-box h1 { font-size: 60px; color: #fff; text-shadow: none; margin-bottom: 0px; letter-spacing: 4px; }
+#winner-name { font-family: 'Teko', sans-serif; font-size: 130px; font-weight: 700; margin-top: -15px; margin-bottom: 10px; line-height: 1; text-transform: uppercase; }
+#final-score { font-family: 'Teko', sans-serif; font-size: 160px; font-weight: bold; margin-bottom: 40px; letter-spacing: 6px; line-height: 1; }
+</style>
+</head>
+<body>
+
+<div id="game-container">
+  <canvas id="gameCanvas" width="2560" height="1440"></canvas>
+  
+  <div id="scoreboard-hud">
+    <!-- Sol Sponsor -->
+    <div class="sb-sponsor">
+      <span class="sponsor-text" id="sponsor-left">
+        ⚽ FUTBOLTAYFA SUNAR ⚽ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 📣 STADYUM ÇILGINA DÖNDÜ! 📣 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 🎥 HER HAFTA YENİ MAÇLAR 🎥 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 🚀 YENİ VİDEOLAR YOLDA 🚀 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 💬 YORUMLARDA TAKIMINI PAYLAŞ 💬 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ⏱️ MAÇ SÜRESİ 90 DAKİKA, SANİYELER HIZLI GEÇİYOR ⏱️
+      </span>
+    </div>
+    
+    <div class="sb-team sb-home" id="ui-home-border">
+      <div class="sb-logo-box">
+        <img id="ui-home-img" src="" alt="H" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+        <div id="ui-home-fallback" class="logo-fallback" style="display:none;">H</div>
+      </div>
+      <div class="sb-text"><h2 id="ui-home-name">BEŞİKTAŞ</h2></div>
+    </div>
+    
+    <div class="sb-center">
+      <div class="sb-score-text">
+        <span id="score-home">0</span> 
+        <span style="color:#444;">:</span> 
+        <span id="score-away">0</span>
+      </div>
+      <div class="sb-time-badge" id="ui-time">00'</div>
+    </div>
+
+    <div class="sb-team sb-away" id="ui-away-border">
+      <div class="sb-logo-box">
+        <img id="ui-away-img" src="" alt="A" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+        <div id="ui-away-fallback" class="logo-fallback" style="display:none;">A</div>
+      </div>
+      <div class="sb-text"><h2 id="ui-away-name">GALATASARAY</h2></div>
+    </div>
+
+    <!-- Sağ Sponsor -->
+    <div class="sb-sponsor">
+      <span class="sponsor-text" id="sponsor-right">
+        🔥 KANALIMA ABONE OLMAYI UNUTMAYIN 🔥 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 🏆 SÜPER LİG SİMÜLASYONU 🏆 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 📺 VİDEOYU BEĞENİP YORUM YAPIN 📺 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ❤️ DESTEĞİNİZ İÇİN TEŞEKKÜRLER ❤️ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 🔁 PAYLAŞ, ARKADAŞINI DA ETİKETLE 🔁
+      </span>
+    </div>
+  </div>
+
+  <div id="stats-overlay">
+    <div class="stats-header">MAÇ İSTATİSTİKLERİ</div>
+    
+    <div class="stat-block">
+      <div class="stat-row">
+        <div class="stat-val home" id="stat-poss-home">%50</div>
+        <div class="stat-label">TOPLA OYNAMA</div>
+        <div class="stat-val away" id="stat-poss-away">%50</div>
+      </div>
+      <div class="stat-bar-container">
+        <div class="stat-bar-home" id="bar-poss-home" style="width: 50%;"></div>
+        <div class="stat-bar-away" id="bar-poss-away" style="width: 50%;"></div>
+      </div>
+    </div>
+
+    <div class="stat-block">
+      <div class="stat-row">
+        <div class="stat-val home" id="stat-attack-home">0</div>
+        <div class="stat-label">TEHLİKELİ ATAK</div>
+        <div class="stat-val away" id="stat-attack-away">0</div>
+      </div>
+      <div class="stat-bar-container">
+        <div class="stat-bar-home" id="bar-attack-home" style="width: 50%;"></div>
+        <div class="stat-bar-away" id="bar-attack-away" style="width: 50%;"></div>
+      </div>
+    </div>
+
+    <div class="stat-block">
+      <div class="stat-row">
+        <div class="stat-val home" id="stat-pass-home">0</div>
+        <div class="stat-label">TEMAS / PAS</div>
+        <div class="stat-val away" id="stat-pass-away">0</div>
+      </div>
+      <div class="stat-bar-container">
+        <div class="stat-bar-home" id="bar-pass-home" style="width: 50%;"></div>
+        <div class="stat-bar-away" id="bar-pass-away" style="width: 50%;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="start-screen" class="screen-overlay">
+    <div class="menu-box">
+      <h1>GOL FIRTINASI 2K</h1>
+      <div class="select-row">
+        <div class="select-box">
+          <label>EV SAHİBİ</label>
+          <select id="select-home"></select>
+        </div>
+        <div class="vs-text">VS</div>
+        <div class="select-box">
+          <label>DEPLASMAN</label>
+          <select id="select-away"></select>
+        </div>
+      </div>
+      <button class="btn-action" onclick="startGame()">MAÇA BAŞLA</button>
+    </div>
+  </div>
+
+  <div id="end-screen" class="screen-overlay" style="display:none;">
+    <div class="menu-box end-box">
+      <h1>MAÇ SONUCU</h1>
+      <div id="winner-name">KAZANAN</div>
+      <div id="final-score">0 - 0</div>
+      <button class="btn-action" onclick="resetGame()">YENİ MAÇ</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ========================================================================
+   SES MOTORU
+   ======================================================================== */
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let audioCtx;
+let ambientAudio = new Audio("stadyum-ambiyans.mp3"); 
+ambientAudio.volume = 0.15; 
+
+ambientAudio.addEventListener('timeupdate', function() {
+    let buffer = 0.4; 
+    if (ambientAudio.currentTime >= ambientAudio.duration - buffer) {
+        ambientAudio.currentTime = 0;
+        ambientAudio.play().catch(e => {});
+    }
+});
+
+function initAudio() {
+  if (!audioCtx) audioCtx = new AudioContext();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function playBounceSound(speed) {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gainNode = audioCtx.createGain();
+  
+  osc.type = 'triangle'; 
+  let freq = 80 + (speed * 5); 
+  let vol = Math.min(speed / 20, 0.5); 
+  
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+  
+  gainNode.gain.setValueAtTime(vol, audioCtx.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+  
+  osc.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+  
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.1);
+}
+
+/* ========================================================================
+   İSTATİSTİK TAKİP MOTORU
+   ======================================================================== */
+let matchStats = {
+  home: { possessionTimer: 0, attacks: 0, passes: 0 },
+  away: { possessionTimer: 0, attacks: 0, passes: 0 },
+  lastTouch: null, 
+  lastAttackTime: 0
+};
+
+function updateStatsUI() {
+  let totalPoss = matchStats.home.possessionTimer + matchStats.away.possessionTimer;
+  let homePoss = totalPoss > 0 ? Math.round((matchStats.home.possessionTimer / totalPoss) * 100) : 50;
+  let awayPoss = 100 - homePoss;
+
+  document.getElementById('stat-poss-home').innerText = `%${homePoss}`;
+  document.getElementById('stat-poss-away').innerText = `%${awayPoss}`;
+  document.getElementById('bar-poss-home').style.width = `${homePoss}%`;
+  document.getElementById('bar-poss-away').style.width = `${awayPoss}%`;
+  document.getElementById('bar-poss-home').style.backgroundColor = currentMatch.home.colorPrimary;
+  document.getElementById('bar-poss-away').style.backgroundColor = currentMatch.away.colorPrimary;
+
+  document.getElementById('stat-attack-home').innerText = matchStats.home.attacks;
+  document.getElementById('stat-attack-away').innerText = matchStats.away.attacks;
+  let totalAttacks = matchStats.home.attacks + matchStats.away.attacks;
+  let homeAttackPct = totalAttacks > 0 ? (matchStats.home.attacks / totalAttacks) * 100 : 50;
+  document.getElementById('bar-attack-home').style.width = `${homeAttackPct}%`;
+  document.getElementById('bar-attack-away').style.width = `${100 - homeAttackPct}%`;
+  document.getElementById('bar-attack-home').style.backgroundColor = currentMatch.home.colorPrimary;
+  document.getElementById('bar-attack-away').style.backgroundColor = currentMatch.away.colorPrimary;
+
+  document.getElementById('stat-pass-home').innerText = matchStats.home.passes;
+  document.getElementById('stat-pass-away').innerText = matchStats.away.passes;
+  let totalPasses = matchStats.home.passes + matchStats.away.passes;
+  let homePassPct = totalPasses > 0 ? (matchStats.home.passes / totalPasses) * 100 : 50;
+  document.getElementById('bar-pass-home').style.width = `${homePassPct}%`;
+  document.getElementById('bar-pass-away').style.width = `${100 - homePassPct}%`;
+  document.getElementById('bar-pass-home').style.backgroundColor = currentMatch.home.colorPrimary;
+  document.getElementById('bar-pass-away').style.backgroundColor = currentMatch.away.colorPrimary;
+}
+
+/* ========================================================================
+   TAKIM VERİTABANI
+   ======================================================================== */
+const TAKIM_VERITABANI = {
+  "BJK": { id:"BJK", name:"BEŞİKTAŞ", short:"BJK", colorPrimary:"#ffffff", colorSecondary:"#000000", logoUrl:"bjk-logo.png", goalMusicUrl:"bjk-gol.mp3" },
+  "GS":  { id:"GS", name:"GALATASARAY", short:"GS", colorPrimary:"#ff0000", colorSecondary:"#ffb300", logoUrl:"gs-logo.png", goalMusicUrl:"gs-gol.mp3" },
+  "FB":  { id:"FB", name:"FENERBAHÇE", short:"FB", colorPrimary:"#000066", colorSecondary:"#ffff00", logoUrl:"fb-logo.png", goalMusicUrl:"fb-gol.mp3" },
+  "TS":  { id:"TS", name:"TRABZONSPOR", short:"TS", colorPrimary:"#800000", colorSecondary:"#00c8ff", logoUrl:"ts-logo.png", goalMusicUrl:"ts-gol.mp3" }
+};
+
+for (let key in TAKIM_VERITABANI) {
+  let img = new Image();
+  img.src = TAKIM_VERITABANI[key].logoUrl;
+  TAKIM_VERITABANI[key].imgObj = img;
+}
+
+let currentMatch = { home: TAKIM_VERITABANI["BJK"], away: TAKIM_VERITABANI["GS"] };
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+  const scale = Math.min(window.innerWidth / 2560, window.innerHeight / 1440);
+  document.getElementById('game-container').style.transform = `scale(${scale})`;
+}
+window.addEventListener('resize', resize);
+resize();
+
+/* ========================================================================
+   FİZİK MOTORU VE OYUNCU DİZİLİŞİ
+   ======================================================================== */
+const Engine = Matter.Engine, Render = Matter.Render, Runner = Matter.Runner,
+      Bodies = Matter.Bodies, Body = Matter.Body, Composite = Matter.Composite,
+      Events = Matter.Events, Vector = Matter.Vector;
+
+let engine = Engine.create();
+engine.world.gravity.y = 0; engine.world.gravity.x = 0;
+
+const PITCH_MARGIN_X = 140;
+const PITCH_MARGIN_Y = 220;
+const FIELD_W = 2560 - (PITCH_MARGIN_X * 2);
+const FIELD_H = 1440 - (PITCH_MARGIN_Y * 2);
+const CX = 2560 / 2;
+const CY = 1440 / 2;
+const GOAL_HEIGHT = 360;
+const GOAL_DEPTH = 100;
+
+let walls = [];
+let goalSensorLeft, goalSensorRight;
+
+// Canvas ekran sarsıntısı ve parlama (Juice) değişkenleri
+let screenShakeFrames = 0;
+let goalFlashFrames = 0;
+let goalFlashColor = null;
+
+function buildPitchPhysics() {
+  Composite.clear(engine.world);
+  Engine.clear(engine);
+  
+  const wallOpt = { isStatic: true, restitution: 0.8, friction: 0, render: { visible: false } };
+  let wallTopH = (CY - GOAL_HEIGHT/2) - PITCH_MARGIN_Y;
+  let wallTopY = PITCH_MARGIN_Y + wallTopH / 2;
+  let wallBotH = (1440 - PITCH_MARGIN_Y) - (CY + GOAL_HEIGHT/2);
+  let wallBotY = (CY + GOAL_HEIGHT/2) + wallBotH / 2;
+
+  walls = [
+    Bodies.rectangle(CX, PITCH_MARGIN_Y, FIELD_W, 30, wallOpt),
+    Bodies.rectangle(CX, 1440 - PITCH_MARGIN_Y, FIELD_W, 30, wallOpt),
+    Bodies.rectangle(PITCH_MARGIN_X, wallTopY, 30, wallTopH, wallOpt),
+    Bodies.rectangle(PITCH_MARGIN_X, wallBotY, 30, wallBotH, wallOpt),
+    Bodies.rectangle(2560 - PITCH_MARGIN_X, wallTopY, 30, wallTopH, wallOpt),
+    Bodies.rectangle(2560 - PITCH_MARGIN_X, wallBotY, 30, wallBotH, wallOpt),
+    Bodies.rectangle(PITCH_MARGIN_X - GOAL_DEPTH, CY, 30, GOAL_HEIGHT, wallOpt),
+    Bodies.rectangle(PITCH_MARGIN_X - GOAL_DEPTH/2, CY - GOAL_HEIGHT/2, GOAL_DEPTH, 30, wallOpt),
+    Bodies.rectangle(PITCH_MARGIN_X - GOAL_DEPTH/2, CY + GOAL_HEIGHT/2, GOAL_DEPTH, 30, wallOpt),
+    Bodies.rectangle(2560 - PITCH_MARGIN_X + GOAL_DEPTH, CY, 30, GOAL_HEIGHT, wallOpt),
+    Bodies.rectangle(2560 - PITCH_MARGIN_X + GOAL_DEPTH/2, CY - GOAL_HEIGHT/2, GOAL_DEPTH, 30, wallOpt),
+    Bodies.rectangle(2560 - PITCH_MARGIN_X + GOAL_DEPTH/2, CY + GOAL_HEIGHT/2, GOAL_DEPTH, 30, wallOpt)
+  ];
+
+  goalSensorLeft = Bodies.rectangle(PITCH_MARGIN_X - GOAL_DEPTH + 20, CY, 30, GOAL_HEIGHT - 40, { isStatic: true, isSensor: true, label: 'goal_home' });
+  goalSensorRight = Bodies.rectangle(2560 - PITCH_MARGIN_X + GOAL_DEPTH - 20, CY, 30, GOAL_HEIGHT - 40, { isStatic: true, isSensor: true, label: 'goal_away' });
+
+  Composite.add(engine.world, [...walls, goalSensorLeft, goalSensorRight]);
+}
+
+const PLAYER_RADIUS = 52;
+let players = [];
+let ball;
+
+const formation_4231 = [
+  { x: 0.03, y: 0.5 },  
+  { x: 0.19, y: 0.16 }, { x: 0.13, y: 0.35 }, { x: 0.13, y: 0.65 }, { x: 0.19, y: 0.84 }, 
+  { x: 0.28, y: 0.38 }, { x: 0.28, y: 0.62 }, 
+  { x: 0.42, y: 0.5 },  
+  { x: 0.66, y: 0.22 }, { x: 0.66, y: 0.78 }, 
+  { x: 0.77, y: 0.5 }   
+];
+
+function spawnTeam(teamData, isHome) {
+  formation_4231.forEach((pos) => {
+    let px = isHome ? (PITCH_MARGIN_X + (pos.x * FIELD_W)) : (2560 - PITCH_MARGIN_X - (pos.x * FIELD_W));
+    let py = PITCH_MARGIN_Y + (pos.y * FIELD_H);
+    
+    let player = Bodies.circle(px, py, PLAYER_RADIUS, {
+      isStatic: true, 
+      restitution: 1.0, 
+      friction: 0,
+      label: 'player',
+      plugin: { 
+        team: teamData, teamSide: isHome ? 'home' : 'away', pulse: 0, 
+        baseY: py, oscPhase: Math.random() * Math.PI * 2, oscSpeed: 0.0019 + Math.random() * 0.0013
+      }
+    });
+    players.push(player);
+  });
+}
+
+function initMatchPhysicEntities() {
+  players = [];
+  buildPitchPhysics();
+  spawnTeam(currentMatch.home, true);
+  spawnTeam(currentMatch.away, false);
+  
+  ball = Bodies.circle(CX, CY, 24, { 
+    restitution: 0.95, friction: 0, frictionAir: 0, density: 0.001, label: 'ball' 
+  });
+  Composite.add(engine.world, [...players, ball]);
+}
+
+/* ========================================================================
+   ÇİZİM MOTORU
+   ======================================================================== */
+function drawPitch() {
+  let pitchGradient = ctx.createLinearGradient(0, PITCH_MARGIN_Y, 0, 1440 - PITCH_MARGIN_Y);
+  pitchGradient.addColorStop(0, '#153320'); 
+  pitchGradient.addColorStop(1, '#1b4028'); 
+  
+  ctx.fillStyle = pitchGradient; 
+  ctx.fillRect(0, 0, 2560, 1440);
+  
+  ctx.strokeStyle = '#ffffff'; 
+  ctx.lineWidth = 6;
+  ctx.strokeRect(PITCH_MARGIN_X, PITCH_MARGIN_Y, FIELD_W, FIELD_H);
+  ctx.beginPath(); ctx.moveTo(CX, PITCH_MARGIN_Y); ctx.lineTo(CX, 1440 - PITCH_MARGIN_Y); ctx.stroke();
+  ctx.beginPath(); ctx.arc(CX, CY, 160, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(CX, CY, 12, 0, Math.PI * 2); ctx.fillStyle = '#ffffff'; ctx.fill();
+
+  ctx.strokeRect(PITCH_MARGIN_X, CY - 240, 240, 480); 
+  ctx.strokeRect(2560 - PITCH_MARGIN_X - 240, CY - 240, 240, 480); 
+
+  ctx.save();
+  ctx.lineWidth = 6; ctx.fillStyle = 'rgba(255,255,255,0.03)';
+  ctx.strokeStyle = '#ffffff';
+  ctx.fillRect(PITCH_MARGIN_X - GOAL_DEPTH, CY - GOAL_HEIGHT/2, GOAL_DEPTH, GOAL_HEIGHT);
+  ctx.strokeRect(PITCH_MARGIN_X - GOAL_DEPTH, CY - GOAL_HEIGHT/2, GOAL_DEPTH, GOAL_HEIGHT);
+  
+  ctx.fillRect(2560 - PITCH_MARGIN_X, CY - GOAL_HEIGHT/2, GOAL_DEPTH, GOAL_HEIGHT);
+  ctx.strokeRect(2560 - PITCH_MARGIN_X, CY - GOAL_HEIGHT/2, GOAL_DEPTH, GOAL_HEIGHT);
+  ctx.restore();
+
+  ctx.shadowBlur = 30; ctx.lineWidth = 8;
+  ctx.shadowColor = currentMatch.home.colorPrimary; ctx.strokeStyle = currentMatch.home.colorPrimary;
+  ctx.beginPath(); ctx.moveTo(CX, PITCH_MARGIN_Y); ctx.lineTo(PITCH_MARGIN_X, PITCH_MARGIN_Y); ctx.lineTo(PITCH_MARGIN_X, 1440 - PITCH_MARGIN_Y); ctx.lineTo(CX, 1440 - PITCH_MARGIN_Y); ctx.stroke();
+
+  ctx.shadowColor = currentMatch.away.colorPrimary; ctx.strokeStyle = currentMatch.away.colorPrimary;
+  ctx.beginPath(); ctx.moveTo(CX, PITCH_MARGIN_Y); ctx.lineTo(2560 - PITCH_MARGIN_X, PITCH_MARGIN_Y); ctx.lineTo(2560 - PITCH_MARGIN_X, 1440 - PITCH_MARGIN_Y); ctx.lineTo(CX, 1440 - PITCH_MARGIN_Y); ctx.stroke();
+  ctx.shadowBlur = 0;
+}
+
+function drawPlayers() {
+  players.forEach(p => {
+    let team = p.plugin.team;
+    if(p.plugin.pulse > 0) p.plugin.pulse -= 0.05;
+    
+    ctx.save(); ctx.translate(p.position.x, p.position.y);
+    ctx.shadowBlur = p.plugin.pulse > 0 ? 40 : 15; 
+    ctx.shadowColor = team.colorPrimary;
+    
+    ctx.fillStyle = '#0a0a0a'; 
+    ctx.beginPath(); ctx.arc(0, 0, PLAYER_RADIUS, 0, Math.PI*2); ctx.fill();
+    
+    ctx.lineWidth = 6; ctx.strokeStyle = team.colorPrimary; ctx.stroke(); ctx.shadowBlur = 0;
+    
+    if(team.imgObj && team.imgObj.complete && team.imgObj.naturalWidth > 0) {
+      ctx.beginPath(); ctx.arc(0, 0, PLAYER_RADIUS - 6, 0, Math.PI*2); ctx.clip();
+      ctx.drawImage(team.imgObj, -PLAYER_RADIUS + 6, -PLAYER_RADIUS + 6, (PLAYER_RADIUS-6)*2, (PLAYER_RADIUS-6)*2);
+    } else {
+      ctx.fillStyle = team.colorSecondary; ctx.font = "bold 44px Teko"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(team.short.charAt(0), 0, 3);
+    }
+    
+    ctx.restore();
+  });
+}
+
+function drawBall() {
+  if(!ball || goalLock) return; 
+  ctx.save(); 
+  ctx.translate(ball.position.x, ball.position.y); 
+  ctx.rotate(ball.angle);
+  
+  ctx.shadowBlur = 15; ctx.shadowColor = 'rgba(0,0,0,0.5)';
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath(); ctx.arc(0, 0, 24, 0, Math.PI*2); ctx.fill();
+  ctx.shadowBlur = 0;
+
+  ctx.fillStyle = '#111111';
+  ctx.strokeStyle = '#111111';
+  ctx.lineWidth = 3;
+
+  ctx.beginPath();
+  for (let i = 0; i < 5; i++) {
+    let a = (i * 2 * Math.PI / 5) - Math.PI / 2;
+    let px = Math.cos(a) * 8;
+    let py = Math.sin(a) * 8;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.fill();
+
+  for (let i = 0; i < 5; i++) {
+    let a = (i * 2 * Math.PI / 5) - Math.PI / 2;
+    let px1 = Math.cos(a) * 8;
+    let py1 = Math.sin(a) * 8;
+    let px2 = Math.cos(a) * 24;
+    let py2 = Math.sin(a) * 24;
+    
+    ctx.beginPath();
+    ctx.moveTo(px1, py1);
+    ctx.lineTo(px2, py2);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(px2, py2, 7, a + Math.PI/2.5, a - Math.PI/2.5, true);
+    ctx.fill();
+  }
+
+  ctx.beginPath(); ctx.arc(0, 0, 24, 0, Math.PI*2); 
+  ctx.strokeStyle = '#333'; ctx.lineWidth = 1.5; ctx.stroke();
+  
+  ctx.restore();
+}
+
+/* ========================================================================
+   OYUN MEKANİKLERİ VE GOL ANİMASYONU TETİKLEMESİ
+   ======================================================================== */
+let score = { home: 0, away: 0 };
+let matchActive = false;
+let gameTimerMs = 0;
+let goalLock = false;
+let lastTime = 0;
+const REAL_TIME_DURATION_MS = 5 * 60 * 1000;
+let currentAudio = null;
+
+function updateUI() {
+  if (!goalLock) { // Animasyon esnasında isimlerin üzerine yazmasın
+      document.getElementById(`ui-home-name`).innerText = currentMatch.home.name;
+      document.getElementById(`ui-home-name`).style.color = "#fff";
+      document.getElementById(`ui-away-name`).innerText = currentMatch.away.name;
+      document.getElementById(`ui-away-name`).style.color = "#fff";
+  }
+
+  document.getElementById(`ui-home-border`).style.borderBottomColor = currentMatch.home.colorPrimary;
+  
+  let hImg = document.getElementById(`ui-home-img`);
+  let hFall = document.getElementById(`ui-home-fallback`);
+  hImg.style.display = 'block'; hFall.style.display = 'none'; 
+  hImg.src = currentMatch.home.logoUrl;
+  hFall.innerText = currentMatch.home.short.charAt(0);
+  
+  document.getElementById(`ui-away-border`).style.borderBottomColor = currentMatch.away.colorPrimary;
+
+  let aImg = document.getElementById(`ui-away-img`);
+  let aFall = document.getElementById(`ui-away-fallback`);
+  aImg.style.display = 'block'; aFall.style.display = 'none';
+  aImg.src = currentMatch.away.logoUrl;
+  aFall.innerText = currentMatch.away.short.charAt(0);
+
+  document.getElementById('score-home').innerText = score.home;
+  document.getElementById('score-home').style.color = currentMatch.home.colorPrimary;
+  document.getElementById('score-away').innerText = score.away;
+  document.getElementById('score-away').style.color = currentMatch.away.colorPrimary;
+}
+
+Events.on(engine, 'collisionStart', function(event) {
+  event.pairs.forEach((pair) => {
+    const { bodyA, bodyB } = pair;
+    
+    if (bodyA.label === 'ball' && bodyB.label === 'player') handlePlayerTouch(bodyA, bodyB);
+    if (bodyB.label === 'ball' && bodyA.label === 'player') handlePlayerTouch(bodyB, bodyA);
+    
+    if ((bodyA.label === 'ball' && bodyB.isStatic && bodyB.label !== 'player') || 
+        (bodyB.label === 'ball' && bodyA.isStatic && bodyA.label !== 'player')) {
+        playBounceSound(Vector.magnitude(ball.velocity));
+    }
+
+    if (!goalLock) {
+      if (bodyA.label === 'ball' && bodyB.label === 'goal_home' || bodyB.label === 'ball' && bodyA.label === 'goal_home') handleGoal('away');
+      else if (bodyA.label === 'ball' && bodyB.label === 'goal_away' || bodyB.label === 'ball' && bodyA.label === 'goal_away') handleGoal('home');
+    }
+  });
+});
+
+function handlePlayerTouch(ballBody, playerBody) {
+  playerBody.plugin.pulse = 1.0;
+  let speed = Vector.magnitude(ballBody.velocity);
+  playBounceSound(speed);
+
+  let teamSide = playerBody.plugin.teamSide;
+  matchStats.lastTouch = teamSide;
+  matchStats[teamSide].passes++;
+
+  let newSpeed = Math.min(speed * 1.15 + 4, 25); 
+  let force = Vector.mult(Vector.normalise(ballBody.velocity), newSpeed);
+  Body.setVelocity(ballBody, force);
+}
+
+function handleGoal(scorer) {
+  goalLock = true;
+  
+  if(scorer === 'home') score.home++; else score.away++;
+  updateUI();
+
+  let scoringTeam = scorer === 'home' ? currentMatch.home : currentMatch.away;
+  
+  // 1. Skordaki Pop-Up Animasyonu
+  let sUI = document.getElementById(scorer === 'home' ? 'score-home' : 'score-away');
+  sUI.classList.remove('goal-anim');
+  void sUI.offsetWidth; 
+  sUI.classList.add('goal-anim');
+
+  // 2. GOOOOOL! Metni Animasyonu
+  let nameUI = document.getElementById(scorer === 'home' ? 'ui-home-name' : 'ui-away-name');
+  nameUI.innerText = "G O O O O O L !";
+  nameUI.style.color = scoringTeam.colorPrimary;
+  nameUI.classList.add('goal-text-anim');
+
+  // 3. Canvas Sarsıntı ve Flaş Etkisi
+  screenShakeFrames = 25;
+  goalFlashFrames = 30;
+  goalFlashColor = scoringTeam.colorPrimary;
+
+  // Ses Çalma
+  if(scoringTeam.goalMusicUrl) {
+    if(currentAudio) currentAudio.pause(); 
+    currentAudio = new Audio(scoringTeam.goalMusicUrl);
+    currentAudio.volume = 0.6;
+    currentAudio.play().catch(e => {});
+    
+    setTimeout(() => {
+      if(currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; }
+    }, 3000);
+  }
+
+  Body.setPosition(ball, { x: CX, y: CY }); 
+  Body.setVelocity(ball, { x: 0, y: 0 });
+
+  // 3 saniye sonra isimleri ve animasyonları eski haline çevir, maçı başlat
+  setTimeout(() => { 
+    nameUI.innerText = scoringTeam.name;
+    nameUI.style.color = "#fff";
+    nameUI.classList.remove('goal-text-anim');
+    shootBall(); 
+    goalLock = false; 
+  }, 3000);
+}
+
+function shootBall() {
+  let angle = (Math.random() * Math.PI * 2);
+  let speed = 20; 
+  Body.setVelocity(ball, { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed });
+}
+
+/* ========================================================================
+   OYUN DÖNGÜSÜ (LOOP)
+   ======================================================================== */
+function gameLoop(timestamp) {
+  let deltaTime = timestamp - lastTime;
+  lastTime = timestamp;
+  if(deltaTime > 100) deltaTime = 1000/60;
+
+  if(matchActive) {
+    Engine.update(engine, deltaTime);
+
+    players.forEach(p => {
+      let newY = p.plugin.baseY + Math.sin(timestamp * p.plugin.oscSpeed + p.plugin.oscPhase) * 35; 
+      Body.setPosition(p, { x: p.position.x, y: newY });
+    });
+
+    if(!goalLock) {
+      let speed = Vector.magnitude(ball.velocity);
+      if(speed < 10) {
+        let pushForce = speed === 0 ? {x: 10, y: 10} : Vector.mult(Vector.normalise(ball.velocity), 10);
+        Body.setVelocity(ball, pushForce);
+      } else if(speed > 28) {
+        Body.setVelocity(ball, Vector.mult(Vector.normalise(ball.velocity), 28));
+      }
+      
+      if (matchStats.lastTouch) {
+        matchStats[matchStats.lastTouch].possessionTimer += deltaTime;
+      }
+      
+      if (timestamp - matchStats.lastAttackTime > 4000) {
+          if (ball.position.x < PITCH_MARGIN_X + 600 && matchStats.lastTouch === 'away') {
+              matchStats.away.attacks++;
+              matchStats.lastAttackTime = timestamp;
+          } else if (ball.position.x > 2560 - PITCH_MARGIN_X - 600 && matchStats.lastTouch === 'home') {
+              matchStats.home.attacks++;
+              matchStats.lastAttackTime = timestamp;
+          }
+      }
+
+      gameTimerMs += deltaTime;
+      let simMin = Math.floor((gameTimerMs / REAL_TIME_DURATION_MS) * 90);
+      
+      if(simMin <= 90) {
+        document.getElementById('ui-time').innerText = simMin + "'";
+        
+        let statsPanel = document.getElementById('stats-overlay');
+        if ((simMin >= 20 && simMin <= 25) || (simMin >= 45 && simMin <= 50) || (simMin >= 70 && simMin <= 75)) {
+            updateStatsUI();
+            statsPanel.classList.add('show');
+        } else {
+            statsPanel.classList.remove('show');
+        }
+
+      } else { 
+        document.getElementById('ui-time').innerText = "90'"; 
+        triggerEndGame(); 
+      }
+    }
+  }
+
+  // Çizim Başlıyor
+  ctx.clearRect(0, 0, 2560, 1440);
+  ctx.save();
+
+  // Ekran Sarsıntısı (Gol Anında)
+  if(screenShakeFrames > 0) {
+      let dx = (Math.random() - 0.5) * 20;
+      let dy = (Math.random() - 0.5) * 20;
+      ctx.translate(dx, dy);
+      screenShakeFrames--;
+  }
+
+  drawPitch();
+
+  // Saha Flaş Patlaması (Gol Anında)
+  if(goalFlashFrames > 0) {
+      ctx.fillStyle = goalFlashColor;
+      ctx.globalAlpha = (goalFlashFrames / 30) * 0.4; 
+      ctx.fillRect(0, 0, 2560, 1440);
+      ctx.globalAlpha = 1.0;
+      goalFlashFrames--;
+  }
+
+  drawPlayers();
+  drawBall();
+  
+  ctx.restore();
+
+  requestAnimationFrame(gameLoop);
+}
+
+function triggerEndGame() {
+  matchActive = false;
+  if(ambientAudio) ambientAudio.pause(); 
+  document.getElementById('stats-overlay').classList.remove('show');
+  
+  let endScreen = document.getElementById('end-screen');
+  let winnerName = document.getElementById('winner-name');
+  let finalScore = document.getElementById('final-score');
+  
+  endScreen.style.display = 'flex';
+  finalScore.innerText = `${score.home} - ${score.away}`;
+  
+  if (score.home > score.away) {
+      winnerName.innerText = `${currentMatch.home.name} KAZANDI!`;
+      winnerName.style.color = currentMatch.home.colorPrimary;
+      winnerName.style.textShadow = `0 0 30px ${currentMatch.home.colorPrimary}`;
+      finalScore.style.color = currentMatch.home.colorPrimary;
+  } else if (score.away > score.home) {
+      winnerName.innerText = `${currentMatch.away.name} KAZANDI!`;
+      winnerName.style.color = currentMatch.away.colorPrimary;
+      winnerName.style.textShadow = `0 0 30px ${currentMatch.away.colorPrimary}`;
+      finalScore.style.color = currentMatch.away.colorPrimary;
+  } else {
+      winnerName.innerText = "BERABERE";
+      winnerName.style.color = "#aaaaaa";
+      winnerName.style.textShadow = "none";
+      finalScore.style.color = "#ffffff";
+  }
+}
+
+/* ========================================================================
+   MENÜ BAŞLATMA
+   ======================================================================== */
+function initMenu() {
+  const selHome = document.getElementById('select-home');
+  const selAway = document.getElementById('select-away');
+  for (let key in TAKIM_VERITABANI) {
+    selHome.innerHTML += `<option value="${key}">${TAKIM_VERITABANI[key].name}</option>`;
+    selAway.innerHTML += `<option value="${key}">${TAKIM_VERITABANI[key].name}</option>`;
+  }
+  selHome.value = "BJK"; selAway.value = "GS";
+}
+
+function startGame() {
+  initAudio(); 
+  ambientAudio.play().catch(e => console.log("Stadyum sesi engellendi: " + e)); 
+  
+  const hKey = document.getElementById('select-home').value;
+  const aKey = document.getElementById('select-away').value;
+  currentMatch.home = TAKIM_VERITABANI[hKey];
+  currentMatch.away = TAKIM_VERITABANI[aKey];
+
+  document.getElementById('start-screen').style.display = 'none';
+  
+  document.getElementById('score-home').classList.remove('goal-anim');
+  document.getElementById('score-away').classList.remove('goal-anim');
+  
+  score.home = 0; score.away = 0; gameTimerMs = 0;
+  matchStats = { home: { possessionTimer: 0, attacks: 0, passes: 0 }, away: { possessionTimer: 0, attacks: 0, passes: 0 }, lastTouch: null, lastAttackTime: 0 };
+  
+  updateUI();
+  initMatchPhysicEntities();
+  matchActive = true;
+  lastTime = performance.now();
+  shootBall();
+}
+
+function resetGame() {
+  document.getElementById('end-screen').style.display = 'none';
+  document.getElementById('start-screen').style.display = 'flex';
+}
+
+initMenu();
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
