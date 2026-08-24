@@ -428,10 +428,25 @@ function updateStatsUI() {
    TAKIM VERİTABANI
    ======================================================================== */
 const TAKIM_VERITABANI = {
-  "BJK": { id:"BJK", name:"BEŞİKTAŞ", short:"BJK", colorPrimary:"#ffffff", colorSecondary:"#000000", logoUrl:"bjk-logo.png", goalMusicUrl:"bjk-gol.mp3" },
-  "GS":  { id:"GS", name:"GALATASARAY", short:"GS", colorPrimary:"#ff0000", colorSecondary:"#ffb300", logoUrl:"gs-logo.png", goalMusicUrl:"gs-gol.mp3" },
-  "FB":  { id:"FB", name:"FENERBAHÇE", short:"FB", colorPrimary:"#000066", colorSecondary:"#ffff00", logoUrl:"fb-logo.png", goalMusicUrl:"fb-gol.mp3" },
-  "TS":  { id:"TS", name:"TRABZONSPOR", short:"TS", colorPrimary:"#800000", colorSecondary:"#00c8ff", logoUrl:"ts-logo.png", goalMusicUrl:"ts-gol.mp3" }
+      "fb": { isim: "FENERBAHÇE", kisa: "FB", logo: "./fb-logo.png", muzik: "fb-gol.mp3", renkAna: "#FBED11", renkIkinci: "#000044", kazandiYazisi: "💛💙 FENERBAHÇE KAZANDI!" },
+      "bjk": { isim: "BEŞİKTAŞ", kisa: "BJK", logo: "./bjk-logo.png", muzik: "bjk-gol.mp3", renkAna: "#FFFFFF", renkIkinci: "#222222", kazandiYazisi: "🦅 BEŞİKTAŞ KAZANDI!" },
+      "gs": { isim: "GALATASARAY", kisa: "GS", logo: "./gs-logo.png", muzik: "gs-gol.mp3", renkAna: "#A90432", renkIkinci: "#FDB912", kazandiYazisi: "❤️💛 GALATASARAY KAZANDI!" },
+      "ts": { isim: "TRABZONSPOR", kisa: "TS", logo: "./ts-logo.png", muzik: "ts-gol.mp3", renkAna: "#8C0B29", renkIkinci: "#45B2E6", kazandiYazisi: "❤️💙 TRABZONSPOR KAZANDI!" },
+      "kasimpasa": { isim: "KASIMPAŞA", kisa: "KAS", logo: "./kasimpasa-logo.png", muzik: "kasimpasa-gol.mp3", renkAna: "#000055", renkIkinci: "#FFFFFF", kazandiYazisi: "🔵⚪ KASIMPAŞA KAZANDI!" },
+      "goztepe": { isim: "GÖZTEPE", kisa: "GÖZ", logo: "./goztepe-logo.png", muzik: "goztepe-gol.mp3", renkAna: "#ED1C24", renkIkinci: "#FFD700", kazandiYazisi: "🔴🟡 GÖZTEPE KAZANDI!" },
+      "antalyaspor": { isim: "ANTALYASPOR", kisa: "ANT", logo: "./antalyaspor-logo.png", muzik: "antalyaspor-gol.mp3", renkAna: "#E32219", renkIkinci: "#FFFFFF", kazandiYazisi: "🔴⚪ ANTALYASPOR KAZANDI!" },
+      "alanyaspor": { isim: "ALANYASPOR", kisa: "ALA", logo: "./alanyaspor-logo.png", muzik: "alanyaspor-gol.mp3", renkAna: "#F9A800", renkIkinci: "#008751", kazandiYazisi: "🟠🟢 ALANYASPOR KAZANDI!" },
+      "konyaspor": { isim: "KONYASPOR", kisa: "KON", logo: "./konyaspor-logo.png", muzik: "konyaspor-gol.mp3", renkAna: "#006400", renkIkinci: "#FFFFFF", kazandiYazisi: "🟢⚪ KONYASPOR KAZANDI!" },
+      "rizespor": { isim: "RİZESPOR", kisa: "RİZ", logo: "./rizespor-logo.png", muzik: "rizespor-gol.mp3", renkAna: "#00529F", renkIkinci: "#008000", kazandiYazisi: "🔵🟢 RİZESPOR KAZANDI!" },
+      "samsunspor": { isim: "SAMSUNSPOR", kisa: "SAM", logo: "./samsunspor-logo.png", muzik: "samsunspor-gol.mp3", renkAna: "#E32219", renkIkinci: "#FFFFFF", kazandiYazisi: "🔴⚪ SAMSUNSPOR KAZANDI!" },
+      "eyupspor": { isim: "EYÜPSPOR", kisa: "EYP", logo: "./eyupspor-logo.png", muzik: "eyupspor-gol.mp3", renkAna: "#4B0082", renkIkinci: "#FFD700", kazandiYazisi: "🟣🟡 EYÜPSPOR KAZANDI!" },
+      "basaksehir": { isim: "BAŞAKŞEHİR", kisa: "BŞK", logo: "./basaksehir-logo.png", muzik: "basaksehir-gol.mp3", renkAna: "#F47321", renkIkinci: "#002A54", kazandiYazisi: "🟠🔵 BAŞAKŞEHİR KAZANDI!" },
+      "karagumruk": { isim: "KARAGÜMRÜK", kisa: "FKG", logo: "./karagumruk-logo.png", muzik: "karagumruk-gol.mp3", renkAna: "#ED1C24", renkIkinci: "#000000", kazandiYazisi: "🔴⚫ KARAGÜMRÜK KAZANDI!" },
+      "kayserispor": { isim: "KAYSERİSPOR", kisa: "KAY", logo: "./kayserispor-logo.png", muzik: "kayserispor-gol.mp3", renkAna: "#ED1C24", renkIkinci: "#FFD700", kazandiYazisi: "🔴🟡 KAYSERİSPOR KAZANDI!" },
+      "gaziantep": { isim: "GAZİANTEP FK", kisa: "GFK", logo: "./gaziantep-logo.png", muzik: "gaziantep-gol.mp3", renkAna: "#E32219", renkIkinci: "#000000", kazandiYazisi: "🔴⚫ GAZİANTEP FK KAZANDI!" },
+      "genclerbirligi": { isim: "GENÇLERBİRLİĞİ", kisa: "GEN", logo: "./genclerbirligi-logo.png", muzik: "genclerbirligi-gol.mp3", renkAna: "#ED1C24", renkIkinci: "#000000", kazandiYazisi: "🔴⚫ GENÇLERBİRLİĞİ KAZANDI!" },
+        "lyon_ucl": { isim: "OLYMPIQUE LYON", kisa: "OL", logo: "./lyon-logo.png", muzik: "lyon-gol.mp3", renkAna: "#DA291C", renkIkinci: "#005CA9", kazandiYazisi: "🔴🔵 LYON KAZANDI!" },
+      "kocaeli": { isim: "KOCAELİSPOR", kisa: "KOC", logo: "./kocaeli-logo.png", muzik: "kocaeli-gol.mp3", renkAna: "#008037", renkIkinci: "#000000", kazandiYazisi: "🟢⚫ KOCAELİSPOR KAZANDI!" }
 };
 
 for (let key in TAKIM_VERITABANI) {
